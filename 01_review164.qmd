@@ -68,10 +68,38 @@ A recent Stat 272 project examined determinants of covid vaccination rates at th
 
 a) A scatterplot with points and smoothers colored by state.  Make sure the legend is ordered in a meaningful way, and include good labels on your axes and your legend.  Also leave off the error bars from your smoothers.
 
+```{r}
+library(tidyverse)
+
+vaccine_data |>
+  filter(state %in% c("Minnesota", "Iowa", "Wisconsin", "North Dakota", "South Dakota"))|>
+  mutate(state = fct_reorder2(state, perc_Biden, perc_complete_vac))|>
+  ggplot(aes(x = perc_Biden, y = perc_complete_vac, color = state))+
+  geom_point()+
+  geom_smooth(se = FALSE)+
+  labs(x = "Percent Voted for Biden", y = "Percent Completely Vaccinated", title = "Biden Voting and Vaccination", color = "State")
+```
+
+
 b) One plot per state containing a scatterplot and a smoother.
+
+
+```{r}
+library(tidyverse)
+
+vaccine_data |>
+  filter(state %in% c("Minnesota", "Iowa", "Wisconsin", "North Dakota", "South Dakota"))|>
+  ggplot(aes(x = perc_Biden, y = perc_complete_vac))+
+  geom_point()+
+  geom_smooth(se = FALSE)+
+  facet_wrap(~state)+
+  labs(x = "Percent Voted for Biden", y = "Percent Completely Vaccinated", title = "Biden Voting and Vaccination")
+  
+```
 
 Describe which plot you prefer and why.  What can you learn from your preferred plot?
 
+*I prefer the second one. It is less cluttered than the first one, and it is also easier to see the patterns amoung each individual state.* 
 
 2. We wish to compare the proportions of counties in each region with median household income above the national median ($69,560).
 
