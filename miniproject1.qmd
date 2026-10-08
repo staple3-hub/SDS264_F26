@@ -1,0 +1,175 @@
+---
+title: "miniproject1"
+html: default
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r}
+#| include: FALSE
+
+library(tidyverse)
+library(tidytext)
+library(textdata)
+library(wordcloud)
+library(wordcloud2)
+library(viridis)
+library(ggthemes)
+library(gutenbergr)
+library(geniusr)
+library(dplyr)
+library(lyricsr)
+```
+
+```{r}
+songs_olivia <- songs|>
+  filter(album == "SOUR"|album == "GUTS"|album == "you seem pretty sad for a girl so in love")|>
+  unnest_tokens(word, lyrics, token = "words")|>
+  anti_join(smart_stopwords)|>
+  filter(!word %in% c("ooh", "verse", "chorus", "bridge", "ha", "ah", "outro", "olivia", "rodrigo", "la", "pre", "blah"))|>
+  filter(str_detect(word, "[^\\d]"))
+
+songs_olivia1 <- songs_olivia|>
+  select(title, artist, album, release_date, genre, tags, pageviews, word)|>
+  mutate(year = str_sub(release_date, 1, 4))
+```
+
+```{r}
+songs_olivia1 |>
+  distinct(tags)|>
+  print(n = 36)
+```
+
+
+```{r}
+commontags <- songs_olivia1 |>
+  distinct(tags) |>
+  mutate(num_ballads = str_count(tags, "Ballad"), num_acoustic = str_count(tags, "Acoustic"), num_orch = str_count(tags, "Orchestral"), num_folk = str_count(tags, "Folk"), num_rock = str_count(tags, "Rock"), num_pop = str_count(tags, "Pop"), num_alt = str_count(tags, "Alternative"), num_elec = str_count(tags, "Electronic"))|>
+  summarize(sum(num_ballads), sum(num_acoustic), sum(num_orch), sum(num_folk), sum(num_rock), sum(num_pop), sum(num_alt), sum(num_elec))
+```
+
+```{r}
+# may have to hit 1 to download or confirm you'll cite in pubs
+get_sentiments(lexicon = "afinn")
+get_sentiments(lexicon = "nrc")
+get_sentiments(lexicon = "bing")
+
+bing_sentiments <- get_sentiments(lexicon = "bing")
+```
+
+```{r}
+songs_olivia1 |>
+  count(word, sort = TRUE) |>
+  slice_max(n, n = 10) |>
+  ggplot(aes(fct_reorder(word, n), n)) +
+  geom_col() +
+  coord_flip() +
+  theme_clean()
+```
+
+```{r}
+songs_olivia1 |>
+  inner_join(bing_sentiments) |>
+  count(sentiment, word, sort = TRUE) |>
+  group_by(sentiment) |>
+  slice_max(n, n = 10) |>
+  ungroup() |>
+  ggplot(aes(x = fct_reorder(word, n), y = n, fill = sentiment)) +
+    geom_col() +  
+    coord_flip() +
+    facet_wrap(~ sentiment, scales = "free")
+```
+
+```{r}
+songs_olivia1 |>
+  inner_join(bing_sentiments) |>
+  count(album, title, sentiment) |>
+  pivot_wider(names_from = sentiment, values_from = n, values_fill = 0) |>
+  mutate(sentiment = positive - negative) |>
+  ggplot(aes(x = title, y = sentiment, fill = album)) +
+    geom_col(show.legend = FALSE) +
+    facet_wrap(~album, ncol = 2, scales = "free_x")
+```
+
+```{r}
+tidy_ngram <- songs |>
+  filter(album %in% c("SOUR", "GUTS", "you seem pretty sad for a girl so in love"))|>
+  unnest_tokens(bigram, lyrics, token = "ngrams", n = 2) |>
+  filter(bigram != "NA")
+
+tidy_ngram |>
+  count(bigram, sort = TRUE)
+```
+
+```{r}
+bigrams_filtered <- tidy_ngram |>
+  separate(bigram, c("word1", "word2"), sep = " ") |>
+  filter(!word1 %in% stop_words$word,
+         !word2 %in% stop_words$word,
+         !word1 %in% c("olivia", "rodrigo", "ah", "verse", "ooh", "madison", "pre", "chorus", "blah", "lo", "da", "la", "ha", "ho", "na"),
+         !word2 %in% c("olivia", "rodrigo", "ah", "verse", "ooh", "madison", "pre", "chorus", "blah", "1", "2", "3", "lo", "da", "la", "ha", "ho", "na")) |>
+  count(word1, word2, sort = TRUE)
+bigrams_filtered
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
