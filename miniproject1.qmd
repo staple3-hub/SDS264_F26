@@ -1,12 +1,18 @@
 ---
-title: "miniproject1"
-html: default
+title: "SDS 264: Mini Project 1"
+format: pdf
 editor_options: 
   chunk_output_type: console
 ---
 
+# Guts Are Sour When You're Sad and in Love!: A Text Analysis of Olivia Rodrigo's Existing Albums
+
+## By Allison Staples
+
 ```{r}
-#| include: FALSE
+#| warning: FALSE
+#| message: FALSE
+#| echo: FALSE
 
 library(tidyverse)
 library(tidytext)
@@ -19,157 +25,352 @@ library(gutenbergr)
 library(geniusr)
 library(dplyr)
 library(lyricsr)
+library(ggplot2)
+library(readr)
+library(scales)
+
+
+smart_stopwords <- get_stopwords(source = "smart")
+bing_sentiments <- get_sentiments(lexicon = "bing")
+
+#loading in all the necessary packages!
+```
+
+### Introduction
+
+As of 2026, Olivia has released three stellar full-length albums, including "SOUR" in 2021, "GUTS" in 2023, and "you seem pretty sad for a girl so in love" (YOUSEEMSAD, abbreviated in this article) in 2026. Each album (excluding deluxe versions) includes more songs than the last, going from 11 songs in "SOUR," to 12 in "GUTS," to 13 tracks in YOUSEEMSAD! Her albums paint a picture of heartbreak, jealousy, anger, and acceptance. In this analysis, we will first examine the defining genres and tags of her music, and then delve deeper, analyzing the common themes in her lyrics, and how they have changed over the course of her music career. 
+
+*All data scraped from the website Genius using the lyricsr package.*
+
+First, let's take a look at when each album released singles. The following table shows all of the release dates from each album! As you can see, her most recent album only contained two lead singles prior to the full release of the album, while her first two albums had three lead singles!
+
+```{r}
+#| warning: FALSE
+#| message: FALSE
+#| echo: FALSE
+songs <- search_artist("Olivia Rodrigo")
+#function in the lyricsr package that lets you create a dataset made up of all the songs from a particular artist
 ```
 
 ```{r}
+#| warning: FALSE
+#| message: FALSE
+#| echo: FALSE
+
+songs_olivia2 <- songs|>
+  filter(
+    album == "SOUR"|
+    album == "GUTS"|
+    album == "you seem pretty sad for a girl so in love"
+    ) |>
+  mutate(
+    year = str_sub(release_date, 1, 4),
+    year = parse_number(year)
+    )
+#I used this dataset for analysis on genre and year. 
+
+songs_olivia3 <- songs |>
+     filter(
+    album == "SOUR"|
+    album == "GUTS"|
+    album == "you seem pretty sad for a girl so in love"
+    )|>
+  unnest_tokens(
+    word, lyrics, token = "words"
+    )|>
+  anti_join(
+    smart_stopwords
+    )
+#I used this dataset for analysis on words like "ooh" and "ah"
+
 songs_olivia <- songs|>
-  filter(album == "SOUR"|album == "GUTS"|album == "you seem pretty sad for a girl so in love")|>
-  unnest_tokens(word, lyrics, token = "words")|>
-  anti_join(smart_stopwords)|>
-  filter(!word %in% c("ooh", "verse", "chorus", "bridge", "ha", "ah", "outro", "olivia", "rodrigo", "la", "pre", "blah"))|>
-  filter(str_detect(word, "[^\\d]"))
+  filter(
+    album == "SOUR"|
+    album == "GUTS"|
+    album == "you seem pretty sad for a girl so in love"
+    )|>
+  unnest_tokens(
+    word, lyrics, token = "words"
+    )|>
+  anti_join(
+    smart_stopwords
+    )|>
+  filter(
+    !word %in% c("ooh", "verse", "chorus", "bridge", "ha", "ah", "outro", "olivia", "rodrigo", "la", "pre", "blah")
+    )|>
+  filter(
+    str_detect(word, "[^\\d]")
+    )
+#+1 string function, +1 regular expression
 
 songs_olivia1 <- songs_olivia|>
-  select(title, artist, album, release_date, genre, tags, pageviews, word)|>
-  mutate(year = str_sub(release_date, 1, 4))
-```
+  select(
+    title, artist, album, release_date, genre, tags, pageviews, word
+    )|>
+  mutate(
+    release_date1 = str_replace(release_date, "(....)-(..)-(..)", "\\2-\\3-\\1"))
+    
+#songs_olivia1 is the main dataset that I use in this project. 
 
-```{r}
 songs_olivia1 |>
-  distinct(tags)|>
-  print(n = 36)
+  group_by(album) |>
+  distinct(release_date1) |>
+  arrange(fct_relevel(album, "SOUR", "GUTS", "you seem pretty sad for a girl so in love")) |>
+  print()
+
+#+1 string function, +1 regular expression
+
+#First, I created a dataset that only includes songs from her 3 studio albums, and I used unnest_tokens to get a row for each word in her lyrics. Then, I used anti_join to take out common words, and I also took out other irrelevent words such as "verse" or "ooh." I also used str_detect and regular expressions to take out all numbers! Afterwards, I selected the columns I wanted to focus on, and I modified the release_date column using str_replace to order it into month, day, year format. I also created a tibble that shows when the lead singles and albums were released!
 ```
 
+### Genres and Tags
 
+A helpful feature of the Genius website is that each song is given a number of tags! The following table shows the most common words used in the tags throughout Olivia's discography. Clearly, her music is most aligned with tags that have to do with pop music, however, she still has quite a few tags involving rock music! While some might see Olivia as a glittery purple popstar, she's got some grit to her sound as well. 
+
+
+*Common Tags*
 ```{r}
+#| warning: FALSE
+#| message: FALSE
+#| echo: FALSE
+
 commontags <- songs_olivia1 |>
   distinct(tags) |>
-  mutate(num_ballads = str_count(tags, "Ballad"), num_acoustic = str_count(tags, "Acoustic"), num_orch = str_count(tags, "Orchestral"), num_folk = str_count(tags, "Folk"), num_rock = str_count(tags, "Rock"), num_pop = str_count(tags, "Pop"), num_alt = str_count(tags, "Alternative"), num_elec = str_count(tags, "Electronic"))|>
-  summarize(sum(num_ballads), sum(num_acoustic), sum(num_orch), sum(num_folk), sum(num_rock), sum(num_pop), sum(num_alt), sum(num_elec))
+  mutate(
+    num_folk = str_count(tags, "Folk"), 
+    num_rock = str_count(tags, "Rock"), 
+    num_pop = str_count(tags, "Pop"), 
+    num_alt = str_count(tags, "Alternative"), 
+    num_elec = str_count(tags, "Electronic")
+    )|>
+  summarize(
+            "Number of Pop Tags" = sum(num_pop),
+            "Number of Rock Tags" = sum(num_rock), 
+            "Number of Alternative Tags" = sum(num_alt),
+            "Number of Folk Tags" = sum(num_folk),
+            "Number of Electric Tags" = sum(num_elec)
+            )
+
+commontags1 <- t(commontags) 
+
+commontags1
+
+#+1 string function
+
+#In this code chunk, I create a new dataset that extracts the most common words from the "tags" column in the original dataset. First, I use distinct to get one group of tags for each song, using distinct(tags) since each song has its own unique tag set. Using str_count, I count how many times the words appear for each song, and then use summarize and sum in order to find the total number of times each tag is mentioned. I then transpose it to a matrix so it is easier to read. 
+
 ```
 
-```{r}
-# may have to hit 1 to download or confirm you'll cite in pubs
-get_sentiments(lexicon = "afinn")
-get_sentiments(lexicon = "nrc")
-get_sentiments(lexicon = "bing")
+However, what about the genre classification that Genius gives each song? The following plot shows the proportion of rock and pop songs between Olivia's three albums. Her second album is a clear outlier from her first and third! But while Olivia got to rock out in her GUTS "era," she went back to her pop princess roots for her third studio album. "My Way" is the *one* rock song in Olivia's most recent album!
 
-bing_sentiments <- get_sentiments(lexicon = "bing")
+```{r, fig.alt = "This is a segmented bar chart. On the x-axis is album, and on the y-axis is proportion of pop and rock songs. The x-axis has 3 levels, including the albums SOUR, GUTS, and you seem pretty sad for a girl so in love (YOUSEEMSAD), all by Olivia Rodrigo, in order of release date. This chart shows us that Oliva Rodrigo's first album, SOUR, contained about 25% rock songs, and the rest were pop. In contrast, her second album, GUTS, contained around 70% rock songs, and the rest pop, However, her third and most recent album only had a single rock song, and was over 90% pop."}
+
+#| warning: FALSE
+#| message: FALSE
+#| echo: FALSE
+
+
+songs_olivia2 |>
+  ggplot(aes
+         (x = fct_reorder(album, year), 
+          fill = genre)
+         ) +
+  geom_bar(
+    position = "fill"
+          ) +
+  labs(
+        x = "Album", 
+        y = "Proportion", 
+        title = "Pop VS Rock accross Olivia Rodrigo's Discography"
+        ) +
+  scale_x_discrete(
+        labels = 
+        c("you seem pretty sad for a girl so in love" = "YOUSEEMSAD")
+        ) +
+  scale_fill_manual(
+        values = c("Pop" = "hotpink", 
+                   "Rock" = "lightblue"))
+
+#In this code chunk, I created a simple bar graph showing the proportion of rock vs pop songs for each album, ordered by oldest to newest album. Alt text is included for this plot (use HTML viewer). 
+```
+But now it's time to dive into the lyrics!! More specifically, the *words* in the lyrics. 
+
+
+### Common Words
+
+Well, maybe not words quite yet... The following table shows the most common vocalizing "words" present in Olivia Rodrigo's lyrics. As we can see, she loves to sing "AH!" almost as much as she likes to sing about love!
+
+
+*Vocalizing*
+```{r}
+#| warning: FALSE
+#| message: FALSE
+#| echo: FALSE
+
+
+songs_olivia3 |>
+  filter(str_detect(word, "(^.h$)|(^..h$)|(^.a$)")) |>
+  count(word) |>
+  arrange(desc(n))
+
+#+1 string function
+
+#+1 regular expression
+
+#In this code, I used str_detect and regular expressions in order to extract all vocalizing "lyrics," count how many times they appear, and organize them by most prevelent to least prevalent. I removed these words from my initial dataset but decided to also display how often these words occur.
+
 ```
 
-```{r}
+But what *actual* words does Olivia like to sing... The following plot shows the ten most common words in each album... and the *one* word that's in the top ten for each album is...drumroll please...LOVE!! Honorable mentions include "feel," which is on the list for GUTS and YOUSEEMSAD, and "god," which is on the list for both SOUR and GUTS. 
+
+This lists do all contain a common theme, however, and it is that of emotions! Olivia's music mainly has to do with the complex feelings she has around love, self-image, and heartbreak. 
+
+Let's find out if those feelings are positive or negative...
+
+```{r, fig.dim = 10, 20}
+#| warning: FALSE
+#| message: FALSE
+#| echo: FALSE
+
+
 songs_olivia1 |>
+  group_by(album) |>
   count(word, sort = TRUE) |>
   slice_max(n, n = 10) |>
-  ggplot(aes(fct_reorder(word, n), n)) +
-  geom_col() +
+  ggplot(
+    aes(fct_reorder(word, n), n, 
+    fill = factor(album))
+         ) +
+  geom_col(show.legend = FALSE
+         ) +
   coord_flip() +
-  theme_clean()
+  facet_wrap(
+        ~album, scales = "free"
+        ) +
+  scale_fill_manual(
+    values = c(
+      "GUTS" = "#4F237D",           
+      "SOUR" = "#C06FF2", 
+      "you seem pretty sad for a girl so in love" =  "#F589CA")
+        ) +
+  theme_clean() +
+      labs(x = "Count", 
+           title = "Most Common Words in Each Album", 
+           y = "Word")
+
+#In this code, I created a faceted, flipped bar plot that shows the 10 most common words in each album. 
 ```
 
-```{r}
-songs_olivia1 |>
+
+### Sentiment 
+
+Most words, believe it or not, can be classifed into either "positive" or "negative." The following word cloud shows the most common positive words from Olivia's discography. 
+
+*Positive WordCloud*
+```{r, fig.dim = c(5, 3)}
+#| warning: FALSE
+#| message: FALSE
+#| echo: FALSE
+
+words_lyrics_pos <- songs_olivia1 |>
   inner_join(bing_sentiments) |>
-  count(sentiment, word, sort = TRUE) |>
-  group_by(sentiment) |>
-  slice_max(n, n = 10) |>
-  ungroup() |>
-  ggplot(aes(x = fct_reorder(word, n), y = n, fill = sentiment)) +
-    geom_col() +  
-    coord_flip() +
-    facet_wrap(~ sentiment, scales = "free")
+  filter(sentiment == "positive") |>
+  count(word) |>
+  filter(word != "NA") |>
+  arrange(desc(n))
+ 
+#This code creates an appropriate dataset for wordcloud to use, since wordcloud requires a "word" column and an "n" column. It also joins the dataset with another dataset assessing sentiment of each word. This particular set only includes the top words with positive sentiments.
+
+wordcloud(
+  words = words_lyrics_pos$word, 
+  freq = words_lyrics_pos$n, 
+  max.words = 50, 
+  random.order = FALSE, 
+  rot.per = 0.35,
+  scale = c(3.5, 0.25),
+  colors = brewer.pal(9, "PiYG"))
+
+#This code creates the wordcloud with our new dataset of positive sentiment words. 
 ```
 
+As we can see, "love" and "good" are pretty high up there. Some interesting words on there, however, are words such as "logical," and "cure." One would think that those words would be positive, but the way Olivia uses them in her songs named "Logical" and "The Cure," are anything but. These songs are deeply emotional and heart wrenching!
+
+Let's take a look at the wordcloud for the most common negative words!
+
+*Negative WordCloud*
+```{r, fig.dim = c(5, 3)}
+#| warning: FALSE
+#| message: FALSE
+#| echo: FALSE
+
+words_lyrics_neg <- songs_olivia1 |>
+  inner_join(bing_sentiments) |>
+  filter(sentiment == "negative") |>
+  count(word) |>
+  filter(word != "NA") |>
+  arrange(desc(n))
+
+#This code creates an appropriate dataset for wordcloud to use, since wordcloud requires a "word" column and an "n" column. It also joins the dataset with another dataset assessing sentiment of each word. This particular set only includes the top words with negative sentiments.
+
+
+wordcloud(
+  words = words_lyrics_neg$word, 
+  freq = words_lyrics_neg$n, 
+  max.words = 50, 
+  random.order = FALSE, 
+  rot.per = 0.35,
+  scale = c(2, 0.2),
+  colors = brewer.pal(9, "PRGn"))
+
+#This code creates the wordcloud with our new dataset of negative sentiment words. 
+```
+
+Lots of curse words in this one... sorry... But as we can see, "unraveled" is the most prevalent negative word, with "wrong" and "hard" coming close behind. This one also contains many negative *emotions,* like jealousy, crazy, sick, doubt, and insane. 
+
+However, what if we could visualize the net sentiment for a single song? By counting the amount of positive and negative words in each song, and then finding the difference, we can visualize the distribution of net sentiment across songs in each album! Check it out!
+
 ```{r}
+#| warning: FALSE
+#| message: FALSE
+#| echo: FALSE
+
+
 songs_olivia1 |>
   inner_join(bing_sentiments) |>
   count(album, title, sentiment) |>
-  pivot_wider(names_from = sentiment, values_from = n, values_fill = 0) |>
-  mutate(sentiment = positive - negative) |>
-  ggplot(aes(x = title, y = sentiment, fill = album)) +
+  pivot_wider(names_from = sentiment, 
+              values_from = n, 
+              values_fill = 0
+    )|>
+  mutate(
+    sentiment = positive - negative
+    )|>
+  ggplot(aes
+         (x = title, 
+          y = sentiment, 
+          fill = factor(album))
+      ) +
     geom_col(show.legend = FALSE) +
-    facet_wrap(~album, ncol = 2, scales = "free_x")
+    facet_wrap(~album, 
+               ncol = 2,
+               scales = "free_x"
+      ) +
+    scale_fill_manual(values = c(
+      "GUTS" = "#4F237D",           
+      "SOUR" = "#C06FF2", 
+      "you seem pretty sad for a girl so in love" =  "#F589CA")
+      ) +
+    theme(axis.text.x = element_blank())+
+      labs(
+        x = " ", y = "Sentiment Score", title = "Sentiment Score Across Albums"
+      )
+
+#This code joins the songs dataset with another dataset assessing sentiment of each word. It then pivots the dataset to be wider and include positive and negative as their own columns. Then, it creates a new variable that assesses net sentiment score for each song (positive - negative). Finally, it is all piped into a faceted bar plot showing the sentiment trajectory over all three albums. 
 ```
 
-```{r}
-tidy_ngram <- songs |>
-  filter(album %in% c("SOUR", "GUTS", "you seem pretty sad for a girl so in love"))|>
-  unnest_tokens(bigram, lyrics, token = "ngrams", n = 2) |>
-  filter(bigram != "NA")
+This plot shows us that perhaps our negative wordcloud had a lot more words to pick from... It is very interesting though to see how her albums have somewhat of a flow to them when it comes to their average sentiment! 
 
-tidy_ngram |>
-  count(bigram, sort = TRUE)
-```
+### Conclusion
 
-```{r}
-bigrams_filtered <- tidy_ngram |>
-  separate(bigram, c("word1", "word2"), sep = " ") |>
-  filter(!word1 %in% stop_words$word,
-         !word2 %in% stop_words$word,
-         !word1 %in% c("olivia", "rodrigo", "ah", "verse", "ooh", "madison", "pre", "chorus", "blah", "lo", "da", "la", "ha", "ho", "na"),
-         !word2 %in% c("olivia", "rodrigo", "ah", "verse", "ooh", "madison", "pre", "chorus", "blah", "1", "2", "3", "lo", "da", "la", "ha", "ho", "na")) |>
-  count(word1, word2, sort = TRUE)
-bigrams_filtered
-```
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+Through analysis of the data provided by Genius, we can conclude that Olivia Rodrigo is mainly a pop artist with a couple solid rock hits. Her music has a distinct theme of love, relationships, and feelings. Teenage girls everywhere can certainly emphasize with her gritty, sorrowful, and honest music. 
 
